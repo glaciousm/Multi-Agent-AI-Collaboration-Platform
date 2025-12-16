@@ -55,7 +55,9 @@ class RoomControllerTest {
                 .andExpect(status().isOk())
                 .andReturn();
 
-        assertThat(result.getResponse().getContentAsString()).contains("Single-Agent Planning Room");
+        assertThat(result.getResponse().getContentAsString())
+                .contains("Multi-Agent Planning Room")
+                .contains("Reviewer");
     }
 
     @Test

@@ -1,63 +1,84 @@
 package com.localcollab.platform.service;
 
+import com.localcollab.platform.domain.Artifact;
 import com.localcollab.platform.domain.ArtifactType;
-import com.localcollab.platform.domain.ChatMessage;
 import com.localcollab.platform.domain.Participant;
 import com.localcollab.platform.domain.ParticipantRole;
-import com.localcollab.platform.domain.ParticipantType;
 import com.localcollab.platform.domain.Room;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 class InMemoryRoomServiceTest {
 
-    private final InMemoryRoomService roomService = new InMemoryRoomService();
+    private InMemoryRoomService service;
 
-    @Test
-    void bootstrapsSingleRoomWithHumanAndPlanner() {
-        List<Room> rooms = roomService.findAll();
-        assertThat(rooms).hasSize(1);
-
-        Room room = rooms.getFirst();
-        assertThat(room.getParticipants()).hasSize(2);
-        assertThat(room.getParticipants())
-                .anySatisfy(p -> assertThat(p.getType()).isEqualTo(ParticipantType.HUMAN))
-                .anySatisfy(p -> assertThat(p.getRole()).isEqualTo(ParticipantRole.PLANNER));
-
-        assertThat(room.getArtifacts())
-                .anySatisfy(a -> {
-                    assertThat(a.getType()).isEqualTo(ArtifactType.PLAN);
-                    assertThat(a.getTitle()).isEqualTo("Starter Plan");
-                    assertThat(a.getContent()).contains("Clarify the request");
-                });
+    @BeforeEach
+    void setUp() {
+        service = new InMemoryRoomService();
     }
 
     @Test
-    void addsMessagesForKnownParticipants() {
-        Room room = roomService.findAll().getFirst();
-        Participant author = room.getParticipants().stream()
-                .filter(p -> p.getType() == ParticipantType.HUMAN)
+    void shouldBootstrapRoomWithPlannerAndReviewer() {
+        Room room = service.findAll().getFirst();
+
+        assertEquals(1, service.findAll().size());
+        assertEquals("Multi-Agent Planning Room", room.getName());
+
+        List<Participant> participants = room.getParticipants();
+        assertEquals(3, participants.size());
+        assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.PLANNER));
+        assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.REVIEWER));
+    }
+
+    @Test
+    void shouldIncrementPlanVersionsWhenAddingNewPlan() {
+        Room room = service.findAll().getFirst();
+        Artifact initialPlan = room.getArtifacts().stream()
+                .filter(a -> a.getType() == ArtifactType.PLAN)
                 .findFirst()
                 .orElseThrow();
 
-        ChatMessage message = roomService.addMessage(room.getId(), author.getId(), "  Hello planner  ");
+        Artifact revisedPlan = service.addArtifact(
+                room.getId(),
+                ArtifactType.PLAN,
+                "Revised Plan",
+                "Expanded plan details",
+                initialPlan.getId());
 
-        assertThat(message.getContent()).isEqualTo("Hello planner");
-        assertThat(room.getMessages())
-                .anySatisfy(m -> assertThat(m.getContent()).isEqualTo("Hello planner"));
+        assertEquals(2, revisedPlan.getVersion());
+        assertEquals(initialPlan.getId(), revisedPlan.getParentArtifactId());
     }
 
     @Test
-    void rejectsMessagesFromUnknownParticipants() {
-        Room room = roomService.findAll().getFirst();
-        UUID unknownParticipant = UUID.randomUUID();
+    void shouldRejectReviewWithoutPlanReference() {
+        Room room = service.findAll().getFirst();
 
-        assertThrows(IllegalArgumentException.class,
-                () -> roomService.addMessage(room.getId(), unknownParticipant, "Hi"));
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                service.addArtifact(room.getId(), ArtifactType.REVIEW, "Review", "Needs more detail", null));
+
+        assertTrue(exception.getMessage().contains("reference a plan"));
+    }
+
+    @Test
+    void shouldCreatePlanReviewLinkedToVersion() {
+        Room room = service.findAll().getFirst();
+        Artifact initialPlan = room.getArtifacts().stream()
+                .filter(a -> a.getType() == ArtifactType.PLAN)
+                .findFirst()
+                .orElseThrow();
+
+        Artifact review = service.addArtifact(
+                room.getId(),
+                ArtifactType.REVIEW,
+                "Plan Review",
+                "Solid outline; expand on risk management.",
+                initialPlan.getId());
+
+        assertEquals(1, review.getVersion());
+        assertEquals(initialPlan.getId(), review.getParentArtifactId());
     }
 }

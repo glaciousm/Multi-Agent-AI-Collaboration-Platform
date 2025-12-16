@@ -1,6 +1,5 @@
 package com.localcollab.platform.web;
 
-import com.localcollab.platform.domain.Artifact;
 import com.localcollab.platform.domain.ArtifactType;
 import com.localcollab.platform.domain.ChatMessage;
 import com.localcollab.platform.domain.Participant;
@@ -22,7 +21,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,14 +64,13 @@ public class RoomController {
     @PostMapping("/{roomId}/artifacts")
     @ResponseStatus(HttpStatus.CREATED)
     public Room addArtifact(@PathVariable UUID roomId, @RequestBody ArtifactRequest request) {
-        Artifact artifact = new Artifact(
-                UUID.randomUUID(),
-                request.getType() == null ? ArtifactType.NOTE : request.getType(),
-                request.getTitle(),
-                request.getContent(),
-                1,
-                Instant.now());
-        return roomService.addArtifact(roomId, artifact);
+        ArtifactType type = request.getType() == null ? ArtifactType.NOTE : request.getType();
+        try {
+            roomService.addArtifact(roomId, type, request.getTitle(), request.getContent(), request.getParentArtifactId());
+            return roomService.getRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     @GetMapping("/{roomId}/messages")

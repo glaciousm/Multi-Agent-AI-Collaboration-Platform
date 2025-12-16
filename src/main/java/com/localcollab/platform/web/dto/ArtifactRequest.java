@@ -6,6 +6,7 @@ public class ArtifactRequest {
     private ArtifactType type;
     private String title;
     private String content;
+    private java.util.UUID parentArtifactId;
 
     public ArtifactType getType() {
         return type;
@@ -17,5 +18,9 @@ public class ArtifactRequest {
 
     public String getContent() {
         return content;
+    }
+
+    public java.util.UUID getParentArtifactId() {
+        return parentArtifactId;
     }
 }
