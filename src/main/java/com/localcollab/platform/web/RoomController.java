@@ -2,12 +2,14 @@ package com.localcollab.platform.web;
 
 import com.localcollab.platform.domain.Artifact;
 import com.localcollab.platform.domain.ArtifactType;
+import com.localcollab.platform.domain.ChatMessage;
 import com.localcollab.platform.domain.Participant;
 import com.localcollab.platform.domain.ParticipantRole;
 import com.localcollab.platform.domain.ParticipantType;
 import com.localcollab.platform.domain.Room;
 import com.localcollab.platform.service.InMemoryRoomService;
 import com.localcollab.platform.web.dto.ArtifactRequest;
+import com.localcollab.platform.web.dto.ChatMessageRequest;
 import com.localcollab.platform.web.dto.ParticipantRequest;
 import com.localcollab.platform.web.dto.RoomRequest;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -71,5 +74,38 @@ public class RoomController {
                 1,
                 Instant.now());
         return roomService.addArtifact(roomId, artifact);
+    }
+
+    @GetMapping("/{roomId}/messages")
+    public List<ChatMessage> listMessages(@PathVariable UUID roomId) {
+        Room room = roomService.getRoom(roomId);
+        if (room == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found");
+        }
+        return room.getMessages();
+    }
+
+    @PostMapping("/{roomId}/messages")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ChatMessage postMessage(@PathVariable UUID roomId, @RequestBody ChatMessageRequest request) {
+        Room room = roomService.getRoom(roomId);
+        if (room == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found");
+        }
+
+        UUID participantId = request.getParticipantId();
+        if (participantId == null) {
+            participantId = room.getParticipants().stream()
+                    .filter(p -> p.getType() == ParticipantType.HUMAN)
+                    .findFirst()
+                    .map(Participant::getId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "No human participant configured"));
+        }
+
+        try {
+            return roomService.addMessage(roomId, participantId, request.getContent());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 }
