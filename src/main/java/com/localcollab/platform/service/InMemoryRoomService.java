@@ -39,7 +39,12 @@ public class InMemoryRoomService {
         room.addParticipant(new Participant(UUID.randomUUID(), "You", ParticipantType.HUMAN, ParticipantRole.OBSERVER, "local", List.of("dialog")));
         room.addParticipant(new Participant(UUID.randomUUID(), "Planner", ParticipantType.AI, ParticipantRole.PLANNER, "ChatGPT", List.of("planning", "dialog")));
         room.addParticipant(new Participant(UUID.randomUUID(), "Reviewer", ParticipantType.AI, ParticipantRole.REVIEWER, "Claude", List.of("review", "dialog")));
-        room.addArtifact(new Artifact(UUID.randomUUID(), ArtifactType.PLAN, "Starter Plan", "1) Clarify the request.\n2) Outline a structured plan.\n3) Deliver the plan artifact for review.", 1, Instant.now(), null));
+        room.addParticipant(new Participant(UUID.randomUUID(), "Implementor", ParticipantType.AI, ParticipantRole.IMPLEMENTOR, "Claude Code", List.of("implementation", "patch", "dialog")));
+
+        Artifact starterPlan = new Artifact(UUID.randomUUID(), ArtifactType.PLAN, "Starter Plan", "1) Clarify the request.\n2) Outline a structured plan.\n3) Deliver the plan artifact for review.", 1, Instant.now(), null);
+        room.addArtifact(starterPlan);
+
+        room.addArtifact(new Artifact(UUID.randomUUID(), ArtifactType.PATCH, "Patch Draft 1", "Initial patch stub aligned to the starter plan.", 1, Instant.now(), starterPlan.getId()));
         rooms.put(room.getId(), room);
         return room;
     }
@@ -128,9 +133,11 @@ public class InMemoryRoomService {
         }
 
         if (type == ArtifactType.REVIEW) {
-            if (parentArtifactId == null) {
-                throw new IllegalArgumentException("Review artifacts must reference a plan version");
-            }
+            validateParentPresence(parentArtifactId, "Review artifacts must reference a plan or patch");
+        }
+
+        if (type == ArtifactType.PATCH) {
+            validateParentPresence(parentArtifactId, "Patch artifacts must reference a plan or prior patch");
         }
 
         if (parentArtifactId != null) {
@@ -139,13 +146,23 @@ public class InMemoryRoomService {
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException("Parent artifact not found in room"));
 
-            if (type == ArtifactType.REVIEW && parentArtifact.getType() != ArtifactType.PLAN) {
-                throw new IllegalArgumentException("Review artifacts must target an existing plan");
+            if (type == ArtifactType.REVIEW && parentArtifact.getType() != ArtifactType.PLAN && parentArtifact.getType() != ArtifactType.PATCH) {
+                throw new IllegalArgumentException("Review artifacts must target an existing plan or patch");
             }
 
             if (type == ArtifactType.PLAN && parentArtifact.getType() != ArtifactType.PLAN) {
                 throw new IllegalArgumentException("Plan versions must reference a prior plan");
             }
+
+            if (type == ArtifactType.PATCH && parentArtifact.getType() != ArtifactType.PLAN && parentArtifact.getType() != ArtifactType.PATCH && parentArtifact.getType() != ArtifactType.TASK) {
+                throw new IllegalArgumentException("Patch artifacts must reference a plan, task, or prior patch");
+            }
+        }
+    }
+
+    private void validateParentPresence(UUID parentArtifactId, String message) {
+        if (parentArtifactId == null) {
+            throw new IllegalArgumentException(message);
         }
     }
 }

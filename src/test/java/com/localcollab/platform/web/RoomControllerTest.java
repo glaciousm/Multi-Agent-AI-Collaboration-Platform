@@ -37,6 +37,7 @@ class RoomControllerTest {
 
     private UUID roomId;
     private UUID humanId;
+    private UUID starterPlanId;
 
     @BeforeEach
     void setUp() {
@@ -46,6 +47,11 @@ class RoomControllerTest {
                 .filter(p -> p.getType() == ParticipantType.HUMAN)
                 .map(Participant::getId)
                 .findFirst()
+                .orElseThrow();
+        starterPlanId = room.getArtifacts().stream()
+                .filter(a -> a.getType().name().equals("PLAN"))
+                .findFirst()
+                .map(com.localcollab.platform.domain.Artifact::getId)
                 .orElseThrow();
     }
 
@@ -77,5 +83,39 @@ class RoomControllerTest {
         mockMvc.perform(get("/api/rooms/" + roomId + "/messages"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].content").value("Hello planner"));
+    }
+
+    @Test
+    void addsPatchArtifactThroughApi() throws Exception {
+        Map<String, Object> payload = Map.of(
+                "type", "PATCH",
+                "title", "API Patch",
+                "content", "Implements API facade",
+                "parentArtifactId", starterPlanId.toString()
+        );
+
+        var result = mockMvc.perform(post("/api/rooms/" + roomId + "/artifacts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        assertThat(result.getResponse().getContentAsString())
+                .contains("API Patch")
+                .contains("PATCH");
+    }
+
+    @Test
+    void rejectsPatchWithoutParent() throws Exception {
+        Map<String, Object> payload = Map.of(
+                "type", "PATCH",
+                "title", "Orphan Patch",
+                "content", "Missing parent"
+        );
+
+        mockMvc.perform(post("/api/rooms/" + roomId + "/artifacts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isBadRequest());
     }
 }

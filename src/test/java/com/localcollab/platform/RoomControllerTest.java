@@ -65,10 +65,10 @@ class RoomControllerTest {
         // default role and type applied in controller
         mockMvc.perform(post("/api/rooms/" + roomId + "/participants")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(participantRequest)))
+                .content(objectMapper.writeValueAsString(participantRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.participants", hasSize(4)))
-                .andExpect(jsonPath("$.participants[3].role", is(ParticipantRole.OBSERVER.name())))
-                .andExpect(jsonPath("$.participants[3].type", is(ParticipantType.AI.name())));
+                .andExpect(jsonPath("$.participants", hasSize(5)))
+                .andExpect(jsonPath("$.participants[4].role", is(ParticipantRole.OBSERVER.name())))
+                .andExpect(jsonPath("$.participants[4].type", is(ParticipantType.AI.name())));
     }
 }
