@@ -11,7 +11,10 @@ import com.localcollab.platform.web.dto.ArtifactRequest;
 import com.localcollab.platform.web.dto.ChatMessageRequest;
 import com.localcollab.platform.web.dto.DriverFailureRequest;
 import com.localcollab.platform.web.dto.ParticipantRequest;
+import com.localcollab.platform.web.dto.ProviderAdapterRequest;
 import com.localcollab.platform.web.dto.RoomRequest;
+import com.localcollab.platform.web.dto.TaskLaneRequest;
+import com.localcollab.platform.web.dto.TaskLaneTaskRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,12 +69,60 @@ public class RoomController {
         }
     }
 
+    @PostMapping("/{roomId}/providers")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Room registerProvider(@PathVariable UUID roomId, @RequestBody ProviderAdapterRequest request) {
+        try {
+            roomService.registerProvider(roomId, request.getProviderName(), request.getAccessMode(), request.getCapabilities(), request.getEndpoint(), request.isAvailable());
+            return roomService.getRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
     @PostMapping("/{roomId}/artifacts")
     @ResponseStatus(HttpStatus.CREATED)
     public Room addArtifact(@PathVariable UUID roomId, @RequestBody ArtifactRequest request) {
         ArtifactType type = request.getType() == null ? ArtifactType.NOTE : request.getType();
         try {
             roomService.addArtifact(roomId, type, request.getTitle(), request.getContent(), request.getParentArtifactId());
+            return roomService.getRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/{roomId}/task-lanes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Room createTaskLane(@PathVariable UUID roomId, @RequestBody TaskLaneRequest request) {
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lane name is required");
+        }
+        if (request.getImplementorId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Implementor id is required");
+        }
+        try {
+            roomService.createTaskLane(roomId, request.getName(), request.getImplementorId());
+            return roomService.getRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/{roomId}/task-lanes/{laneId}/tasks")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Room assignTaskToLane(@PathVariable UUID roomId, @PathVariable UUID laneId, @RequestBody TaskLaneTaskRequest request) {
+        if (request.getTaskArtifactId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "taskArtifactId is required");
+        }
+        try {
+            roomService.assignTaskToLane(roomId, laneId, request.getTaskArtifactId());
             return roomService.getRoom(roomId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);

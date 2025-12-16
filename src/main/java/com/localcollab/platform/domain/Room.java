@@ -13,6 +13,8 @@ public class Room {
     private List<Participant> participants = new ArrayList<>();
     private List<Artifact> artifacts = new ArrayList<>();
     private List<ChatMessage> messages = new ArrayList<>();
+    private List<ProviderAdapter> providerAdapters = new ArrayList<>();
+    private List<TaskLane> taskLanes = new ArrayList<>();
     private boolean paused;
     private DriverStatus driverStatus = DriverStatus.healthy();
 
@@ -50,6 +52,14 @@ public class Room {
         return Collections.unmodifiableList(messages);
     }
 
+    public List<ProviderAdapter> getProviderAdapters() {
+        return Collections.unmodifiableList(providerAdapters);
+    }
+
+    public List<TaskLane> getTaskLanes() {
+        return Collections.unmodifiableList(taskLanes);
+    }
+
     public boolean isPaused() {
         return paused;
     }
@@ -68,6 +78,14 @@ public class Room {
 
     public void addMessage(ChatMessage message) {
         messages.add(message);
+    }
+
+    public void addProviderAdapter(ProviderAdapter adapter) {
+        providerAdapters.add(adapter);
+    }
+
+    public void addTaskLane(TaskLane taskLane) {
+        taskLanes.add(taskLane);
     }
 
     public void pause() {
