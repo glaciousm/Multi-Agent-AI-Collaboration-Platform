@@ -9,6 +9,7 @@ import com.localcollab.platform.domain.Room;
 import com.localcollab.platform.service.InMemoryRoomService;
 import com.localcollab.platform.web.dto.ArtifactRequest;
 import com.localcollab.platform.web.dto.ChatMessageRequest;
+import com.localcollab.platform.web.dto.DriverFailureRequest;
 import com.localcollab.platform.web.dto.ParticipantRequest;
 import com.localcollab.platform.web.dto.RoomRequest;
 import org.springframework.http.HttpStatus;
@@ -58,7 +59,11 @@ public class RoomController {
                 request.getRole() == null ? ParticipantRole.OBSERVER : request.getRole(),
                 request.getProvider(),
                 request.getCapabilities());
-        return roomService.addParticipant(roomId, participant);
+        try {
+            return roomService.addParticipant(roomId, participant);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
     }
 
     @PostMapping("/{roomId}/artifacts")
@@ -70,6 +75,8 @@ public class RoomController {
             return roomService.getRoom(roomId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
         }
     }
 
@@ -103,6 +110,44 @@ public class RoomController {
             return roomService.addMessage(roomId, participantId, request.getContent());
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/{roomId}/pause")
+    public Room pauseRoom(@PathVariable UUID roomId) {
+        try {
+            return roomService.pauseRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/{roomId}/resume")
+    public Room resumeRoom(@PathVariable UUID roomId) {
+        try {
+            return roomService.resumeRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/{roomId}/driver/failures")
+    public Room recordDriverFailure(@PathVariable UUID roomId, @RequestBody DriverFailureRequest request) {
+        try {
+            return roomService.recordDriverFailure(roomId, request.getReason());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
+    @PostMapping("/{roomId}/driver/recoveries")
+    public Room recordDriverRecovery(@PathVariable UUID roomId) {
+        try {
+            return roomService.recordDriverRecovery(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }
     }
 }

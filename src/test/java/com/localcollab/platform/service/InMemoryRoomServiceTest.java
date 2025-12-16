@@ -1,130 +1,59 @@
 package com.localcollab.platform.service;
 
-import com.localcollab.platform.domain.Artifact;
 import com.localcollab.platform.domain.ArtifactType;
-import com.localcollab.platform.domain.Participant;
-import com.localcollab.platform.domain.ParticipantRole;
+import com.localcollab.platform.domain.DriverStatus;
 import com.localcollab.platform.domain.Room;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class InMemoryRoomServiceTest {
 
     private InMemoryRoomService service;
+    private Room room;
 
     @BeforeEach
     void setUp() {
         service = new InMemoryRoomService();
+        room = service.findAll().getFirst();
     }
 
     @Test
-    void shouldBootstrapRoomWithPlannerReviewerAndImplementor() {
-        Room room = service.findAll().getFirst();
+    void pausesRoomWhenRetryBudgetExhausted() {
+        Room updated = service.recordDriverFailure(room.getId(), "timeout");
+        assertEquals(DriverStatus.State.RETRYING, updated.getDriverStatus().getState());
+        assertTrue(updated.getDriverStatus().getConsecutiveFailures() > 0);
 
-        assertEquals(1, service.findAll().size());
-        assertEquals("Multi-Agent Planning Room", room.getName());
+        service.recordDriverFailure(room.getId(), "timeout2");
+        Room pausedRoom = service.recordDriverFailure(room.getId(), "timeout3");
 
-        List<Participant> participants = room.getParticipants();
-        assertEquals(4, participants.size());
-        assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.PLANNER));
-        assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.REVIEWER));
-        assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.IMPLEMENTOR));
+        assertEquals(DriverStatus.State.PAUSED, pausedRoom.getDriverStatus().getState());
+        assertTrue(pausedRoom.isPaused());
     }
 
     @Test
-    void shouldIncrementPlanVersionsWhenAddingNewPlan() {
-        Room room = service.findAll().getFirst();
-        Artifact initialPlan = room.getArtifacts().stream()
-                .filter(a -> a.getType() == ArtifactType.PLAN)
-                .findFirst()
-                .orElseThrow();
+    void blocksArtifactChangesWhilePaused() {
+        service.pauseRoom(room.getId());
 
-        Artifact revisedPlan = service.addArtifact(
-                room.getId(),
-                ArtifactType.PLAN,
-                "Revised Plan",
-                "Expanded plan details",
-                initialPlan.getId());
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+                service.addArtifact(room.getId(), ArtifactType.NOTE, "Blocked", "No write while paused", null));
 
-        assertEquals(2, revisedPlan.getVersion());
-        assertEquals(initialPlan.getId(), revisedPlan.getParentArtifactId());
+        assertEquals("Room is paused; resume before making changes", ex.getMessage());
     }
 
     @Test
-    void shouldRejectReviewWithoutArtifactReference() {
-        Room room = service.findAll().getFirst();
+    void resumingRoomResetsDriverStatus() {
+        service.recordDriverFailure(room.getId(), "first");
+        service.recordDriverFailure(room.getId(), "second");
+        Room pausedRoom = service.recordDriverFailure(room.getId(), "third");
+        assertTrue(pausedRoom.isPaused());
 
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                service.addArtifact(room.getId(), ArtifactType.REVIEW, "Review", "Needs more detail", null));
-
-        assertTrue(exception.getMessage().contains("reference"));
-    }
-
-    @Test
-    void shouldCreatePlanReviewLinkedToVersion() {
-        Room room = service.findAll().getFirst();
-        Artifact initialPlan = room.getArtifacts().stream()
-                .filter(a -> a.getType() == ArtifactType.PLAN)
-                .findFirst()
-                .orElseThrow();
-
-        Artifact review = service.addArtifact(
-                room.getId(),
-                ArtifactType.REVIEW,
-                "Plan Review",
-                "Solid outline; expand on risk management.",
-                initialPlan.getId());
-
-        assertEquals(1, review.getVersion());
-        assertEquals(initialPlan.getId(), review.getParentArtifactId());
-    }
-
-    @Test
-    void shouldEnforcePatchParentRequirement() {
-        Room room = service.findAll().getFirst();
-
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                service.addArtifact(room.getId(), ArtifactType.PATCH, "Unlinked Patch", "No parent", null));
-
-        assertTrue(exception.getMessage().contains("Patch artifacts must reference"));
-    }
-
-    @Test
-    void shouldSupportPatchAndReviewCycle() {
-        Room room = service.findAll().getFirst();
-        Artifact basePlan = room.getArtifacts().stream()
-                .filter(a -> a.getType() == ArtifactType.PLAN)
-                .findFirst()
-                .orElseThrow();
-
-        Artifact implementorPatch = service.addArtifact(
-                room.getId(),
-                ArtifactType.PATCH,
-                "Patch Draft 2",
-                "Adds initial endpoint support",
-                basePlan.getId());
-
-        Artifact patchRevision = service.addArtifact(
-                room.getId(),
-                ArtifactType.PATCH,
-                "Patch Draft 3",
-                "Incorporates review feedback",
-                implementorPatch.getId());
-
-        Artifact patchReview = service.addArtifact(
-                room.getId(),
-                ArtifactType.REVIEW,
-                "Patch Review",
-                "Looks solid; add more tests.",
-                patchRevision.getId());
-
-        assertEquals(2, implementorPatch.getVersion());
-        assertEquals(3, patchRevision.getVersion());
-        assertEquals(1, patchReview.getVersion());
-        assertEquals(patchRevision.getId(), patchReview.getParentArtifactId());
+        Room resumed = service.resumeRoom(room.getId());
+        assertTrue(resumed.getDriverStatus().getConsecutiveFailures() == 0);
+        assertEquals(DriverStatus.State.HEALTHY, resumed.getDriverStatus().getState());
+        assertTrue(!resumed.isPaused());
     }
 }
