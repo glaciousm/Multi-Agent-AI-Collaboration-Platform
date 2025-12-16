@@ -12,6 +12,7 @@ public class Room {
     private Instant createdAt;
     private List<Participant> participants = new ArrayList<>();
     private List<Artifact> artifacts = new ArrayList<>();
+    private List<ChatMessage> messages = new ArrayList<>();
 
     public Room() {
         // for serialization
@@ -43,11 +44,19 @@ public class Room {
         return Collections.unmodifiableList(artifacts);
     }
 
+    public List<ChatMessage> getMessages() {
+        return Collections.unmodifiableList(messages);
+    }
+
     public void addParticipant(Participant participant) {
         participants.add(participant);
     }
 
     public void addArtifact(Artifact artifact) {
         artifacts.add(artifact);
+    }
+
+    public void addMessage(ChatMessage message) {
+        messages.add(message);
     }
 }

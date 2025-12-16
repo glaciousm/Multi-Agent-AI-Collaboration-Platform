@@ -67,8 +67,8 @@ class RoomControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(participantRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.participants", hasSize(2)))
-                .andExpect(jsonPath("$.participants[1].role", is(ParticipantRole.OBSERVER.name())))
-                .andExpect(jsonPath("$.participants[1].type", is(ParticipantType.AI.name())));
+                .andExpect(jsonPath("$.participants", hasSize(3)))
+                .andExpect(jsonPath("$.participants[2].role", is(ParticipantRole.OBSERVER.name())))
+                .andExpect(jsonPath("$.participants[2].type", is(ParticipantType.AI.name())));
     }
 }

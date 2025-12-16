@@ -229,10 +229,10 @@ DONE
 - Core domain model for rooms, participants, and artifacts with in-memory services
 - Basic Web UI shell plus REST endpoints for rooms, participants, and artifacts
 
-### Phase 1 — Single-Agent MVP
-- One room, one user
-- One AI (Planner)
-- Chat + Plan artifact
+### Phase 1 — Single-Agent MVP (Completed)
+- Single default room pre-seeded with one human and one planner AI (ChatGPT)
+- In-memory chat log tied to the room, with REST endpoints to post and list messages
+- Plan artifact scaffold created on room bootstrapping to drive the planning conversation
 
 ### Phase 2 — Multi-Agent Planning
 - Add Reviewer AI
