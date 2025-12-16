@@ -249,10 +249,10 @@ DONE
 - Introduced explicit pause/resume controls that block chat and artifact mutations while a room is paused.
 - Captured driver health metadata (last failure, consecutive failures) so retries and recovery are visible to the orchestration layer.
 
-### Phase 5 — Expansion (Optional)
-- Additional providers
-- Parallel task execution (carefully)
-- API-based adapters (future-proofing)
+### Phase 5 — Expansion (Completed)
+- Added a provider catalog that tracks both web UI and API adapters (ChatGPT, Claude, Claude Code, Gemini, Local API) and lets rooms register new providers on demand.
+- Enabled API-based adapters to be provisioned via REST so participants can lean on future transport layers without code changes.
+- Introduced task lanes that allow multiple implementors to execute task artifacts in parallel while keeping scheduling auditable inside each room.
 
 ---
 

@@ -2,11 +2,17 @@ package com.localcollab.platform.service;
 
 import com.localcollab.platform.domain.ArtifactType;
 import com.localcollab.platform.domain.DriverStatus;
+import com.localcollab.platform.domain.Participant;
+import com.localcollab.platform.domain.ParticipantRole;
+import com.localcollab.platform.domain.ParticipantType;
+import com.localcollab.platform.domain.ProviderAccessMode;
+import com.localcollab.platform.domain.TaskLane;
 import com.localcollab.platform.domain.Room;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,5 +61,39 @@ class InMemoryRoomServiceTest {
         assertTrue(resumed.getDriverStatus().getConsecutiveFailures() == 0);
         assertEquals(DriverStatus.State.HEALTHY, resumed.getDriverStatus().getState());
         assertTrue(!resumed.isPaused());
+    }
+
+    @Test
+    void registersApiAdapterAndKeepsCatalogSynced() {
+        service.registerProvider(room.getId(), "OpenAI API", ProviderAccessMode.API, java.util.List.of("dialog", "tools"), "https://api.openai.local", true);
+
+        Room refreshed = service.getRoom(room.getId());
+        assertTrue(refreshed.getProviderAdapters().stream().anyMatch(adapter ->
+                adapter.getProviderName().equals("OpenAI API") && adapter.getAccessMode() == ProviderAccessMode.API));
+
+        Participant apiImplementor = new Participant(java.util.UUID.randomUUID(), "API Implementor", ParticipantType.AI, ParticipantRole.IMPLEMENTOR, "OpenAI API", java.util.List.of("patch"));
+        Room withImplementor = service.addParticipant(room.getId(), apiImplementor);
+
+        assertTrue(withImplementor.getParticipants().stream().anyMatch(p -> p.getProvider().equals("OpenAI API")));
+    }
+
+    @Test
+    void assignsTasksIntoParallelLanes() {
+        Participant extraImplementor = new Participant(java.util.UUID.randomUUID(), "Gemini Builder", ParticipantType.AI, ParticipantRole.IMPLEMENTOR, "Gemini", java.util.List.of("implementation"));
+        Room roomWithExtra = service.addParticipant(room.getId(), extraImplementor);
+
+        var taskOne = service.addArtifact(room.getId(), ArtifactType.TASK, "Task Alpha", "Build feature A", roomWithExtra.getArtifacts().stream().filter(a -> a.getType() == ArtifactType.PLAN).findFirst().orElseThrow().getId());
+        var taskTwo = service.addArtifact(room.getId(), ArtifactType.TASK, "Task Beta", "Build feature B", roomWithExtra.getArtifacts().stream().filter(a -> a.getType() == ArtifactType.PLAN).findFirst().orElseThrow().getId());
+
+        TaskLane laneOne = service.createTaskLane(room.getId(), "Lane One", roomWithExtra.getParticipants().stream().filter(p -> p.getRole() == ParticipantRole.IMPLEMENTOR).findFirst().orElseThrow().getId());
+        TaskLane laneTwo = service.createTaskLane(room.getId(), "Lane Two", extraImplementor.getId());
+
+        service.assignTaskToLane(room.getId(), laneOne.getId(), taskOne.getId());
+        service.assignTaskToLane(room.getId(), laneTwo.getId(), taskTwo.getId());
+
+        Room updated = service.getRoom(room.getId());
+        assertEquals(3, updated.getTaskLanes().size());
+        assertTrue(updated.getTaskLanes().stream().anyMatch(lane -> lane.getTaskArtifactIds().contains(taskOne.getId())));
+        assertTrue(updated.getTaskLanes().stream().anyMatch(lane -> lane.getTaskArtifactIds().contains(taskTwo.getId())));
     }
 }

@@ -38,6 +38,7 @@ class RoomControllerTest {
     private UUID roomId;
     private UUID humanId;
     private UUID starterPlanId;
+    private UUID implementorId;
 
     @BeforeEach
     void setUp() {
@@ -45,6 +46,11 @@ class RoomControllerTest {
         roomId = room.getId();
         humanId = room.getParticipants().stream()
                 .filter(p -> p.getType() == ParticipantType.HUMAN)
+                .map(Participant::getId)
+                .findFirst()
+                .orElseThrow();
+        implementorId = room.getParticipants().stream()
+                .filter(p -> p.getRole() == com.localcollab.platform.domain.ParticipantRole.IMPLEMENTOR)
                 .map(Participant::getId)
                 .findFirst()
                 .orElseThrow();
@@ -117,5 +123,62 @@ class RoomControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void registersProviderAdapterThroughApi() throws Exception {
+        Map<String, Object> payload = Map.of(
+                "providerName", "Gemini API",
+                "accessMode", "API",
+                "capabilities", java.util.List.of("dialog", "planning"),
+                "endpoint", "https://gemini.local/api"
+        );
+
+        mockMvc.perform(post("/api/rooms/" + roomId + "/providers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.providerAdapters[?(@.providerName=='Gemini API')]").isNotEmpty());
+    }
+
+    @Test
+    void createsParallelTaskLanesViaApi() throws Exception {
+        Map<String, Object> taskPayload = Map.of(
+                "type", "TASK",
+                "title", "Split Feature",
+                "content", "Execute part of the work",
+                "parentArtifactId", starterPlanId.toString()
+        );
+
+        mockMvc.perform(post("/api/rooms/" + roomId + "/artifacts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(taskPayload)))
+                .andExpect(status().isCreated());
+
+        String taskId = roomService.getRoom(roomId).getArtifacts().stream()
+                .filter(a -> a.getType() == com.localcollab.platform.domain.ArtifactType.TASK)
+                .reduce((first, second) -> second)
+                .orElseThrow()
+                .getId()
+                .toString();
+
+        Map<String, Object> lanePayload = Map.of(
+                "name", "Secondary Lane",
+                "implementorId", implementorId.toString()
+        );
+
+        mockMvc.perform(post("/api/rooms/" + roomId + "/task-lanes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(lanePayload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLanes[?(@.name=='Secondary Lane')]").isNotEmpty());
+
+        Map<String, Object> assignmentPayload = Map.of("taskArtifactId", taskId);
+
+        mockMvc.perform(post("/api/rooms/" + roomId + "/task-lanes/" + roomService.getRoom(roomId).getTaskLanes().getLast().getId() + "/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(assignmentPayload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLanes[?(@.taskArtifactIds[0]=='" + taskId + "')]").isNotEmpty());
     }
 }

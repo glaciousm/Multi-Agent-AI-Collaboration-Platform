@@ -7,7 +7,11 @@ import com.localcollab.platform.domain.Participant;
 import com.localcollab.platform.domain.DriverStatus;
 import com.localcollab.platform.domain.ParticipantRole;
 import com.localcollab.platform.domain.ParticipantType;
+import com.localcollab.platform.domain.ProviderAccessMode;
+import com.localcollab.platform.domain.ProviderAdapter;
 import com.localcollab.platform.domain.Room;
+import com.localcollab.platform.domain.TaskLane;
+import com.localcollab.platform.domain.TaskLaneState;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -15,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,8 +27,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InMemoryRoomService {
 
     private final Map<UUID, Room> rooms = new ConcurrentHashMap<>();
+    private final List<ProviderAdapter> providerCatalog = new ArrayList<>();
 
     public InMemoryRoomService() {
+        bootstrapProviderCatalog();
         bootstrapDefaultRoom();
     }
 
@@ -37,6 +44,7 @@ public class InMemoryRoomService {
         }
 
         Room room = new Room(UUID.randomUUID(), name, Instant.now());
+        cloneProvidersIntoRoom(room);
         room.addParticipant(new Participant(UUID.randomUUID(), "You", ParticipantType.HUMAN, ParticipantRole.OBSERVER, "local", List.of("dialog")));
         room.addParticipant(new Participant(UUID.randomUUID(), "Planner", ParticipantType.AI, ParticipantRole.PLANNER, "ChatGPT", List.of("planning", "dialog")));
         room.addParticipant(new Participant(UUID.randomUUID(), "Reviewer", ParticipantType.AI, ParticipantRole.REVIEWER, "Claude", List.of("review", "dialog")));
@@ -46,6 +54,12 @@ public class InMemoryRoomService {
         room.addArtifact(starterPlan);
 
         room.addArtifact(new Artifact(UUID.randomUUID(), ArtifactType.PATCH, "Patch Draft 1", "Initial patch stub aligned to the starter plan.", 1, Instant.now(), starterPlan.getId()));
+        TaskLane defaultLane = new TaskLane(UUID.randomUUID(), "Primary Lane", room.getParticipants().stream()
+                .filter(p -> p.getRole() == ParticipantRole.IMPLEMENTOR)
+                .findFirst()
+                .map(Participant::getId)
+                .orElseThrow(), TaskLaneState.ACTIVE, List.of());
+        room.addTaskLane(defaultLane);
         rooms.put(room.getId(), room);
         return room;
     }
@@ -53,8 +67,36 @@ public class InMemoryRoomService {
     public Room addParticipant(UUID roomId, Participant participant) {
         Room room = getRoomOrThrow(roomId);
         ensureRoomIsActive(room);
+        ensureProviderIsRegistered(room, participant.getProvider(), ProviderAccessMode.WEB_UI, participant.getCapabilities(), null);
         room.addParticipant(participant);
         return room;
+    }
+
+    public ProviderAdapter registerProvider(UUID roomId, String providerName, ProviderAccessMode accessMode, List<String> capabilities, String endpoint, boolean available) {
+        Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
+
+        if (providerName == null || providerName.isBlank()) {
+            throw new IllegalArgumentException("providerName is required");
+        }
+
+        ProviderAccessMode resolvedMode = accessMode == null ? ProviderAccessMode.WEB_UI : accessMode;
+        Optional<ProviderAdapter> existing = room.getProviderAdapters().stream()
+                .filter(adapter -> adapter.getProviderName().equalsIgnoreCase(providerName) && adapter.getAccessMode() == resolvedMode)
+                .findFirst();
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        ProviderAdapter adapter = new ProviderAdapter(UUID.randomUUID(), providerName.trim(), resolvedMode, capabilities, endpoint, available);
+        room.addProviderAdapter(adapter);
+
+        boolean catalogHasProvider = providerCatalog.stream()
+                .anyMatch(p -> p.getProviderName().equalsIgnoreCase(providerName) && p.getAccessMode() == resolvedMode);
+        if (!catalogHasProvider) {
+            providerCatalog.add(new ProviderAdapter(UUID.randomUUID(), providerName.trim(), resolvedMode, capabilities, endpoint, available));
+        }
+        return adapter;
     }
 
     public Artifact addArtifact(UUID roomId, ArtifactType type, String title, String content, UUID parentArtifactId) {
@@ -82,6 +124,46 @@ public class InMemoryRoomService {
 
         room.addArtifact(artifact);
         return artifact;
+    }
+
+    public TaskLane createTaskLane(UUID roomId, String name, UUID implementorId) {
+        Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
+        Participant implementor = room.getParticipants().stream()
+                .filter(p -> p.getId().equals(implementorId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Implementor not found for lane"));
+        if (implementor.getRole() != ParticipantRole.IMPLEMENTOR) {
+            throw new IllegalArgumentException("Task lanes must be owned by an implementor");
+        }
+
+        TaskLane lane = new TaskLane(UUID.randomUUID(), name.trim(), implementorId, TaskLaneState.ACTIVE, List.of());
+        room.addTaskLane(lane);
+        return lane;
+    }
+
+    public TaskLane assignTaskToLane(UUID roomId, UUID laneId, UUID taskArtifactId) {
+        Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
+        Artifact task = room.getArtifacts().stream()
+                .filter(a -> a.getId().equals(taskArtifactId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Task artifact not found"));
+        if (task.getType() != ArtifactType.TASK) {
+            throw new IllegalArgumentException("Only task artifacts can be scheduled into a lane");
+        }
+
+        TaskLane lane = room.getTaskLanes().stream()
+                .filter(t -> t.getId().equals(laneId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Task lane not found"));
+
+        if (lane.getState() != TaskLaneState.ACTIVE) {
+            throw new IllegalStateException("Tasks can only be assigned to active lanes");
+        }
+
+        lane.addTask(taskArtifactId);
+        return lane;
     }
 
     public ChatMessage addMessage(UUID roomId, UUID participantId, String content) {
@@ -160,6 +242,35 @@ public class InMemoryRoomService {
         }
 
         createRoom("Multi-Agent Planning Room");
+    }
+
+    private void bootstrapProviderCatalog() {
+        providerCatalog.add(new ProviderAdapter(UUID.randomUUID(), "ChatGPT", ProviderAccessMode.WEB_UI, List.of("dialog", "planning"), null, true));
+        providerCatalog.add(new ProviderAdapter(UUID.randomUUID(), "Claude", ProviderAccessMode.WEB_UI, List.of("dialog", "review"), null, true));
+        providerCatalog.add(new ProviderAdapter(UUID.randomUUID(), "Claude Code", ProviderAccessMode.WEB_UI, List.of("implementation", "patch"), null, true));
+        providerCatalog.add(new ProviderAdapter(UUID.randomUUID(), "Gemini", ProviderAccessMode.WEB_UI, List.of("dialog", "planning", "review"), null, true));
+        providerCatalog.add(new ProviderAdapter(UUID.randomUUID(), "Local API", ProviderAccessMode.API, List.of("dialog", "implementation", "patch"), "http://localhost:11434/api", true));
+    }
+
+    private void cloneProvidersIntoRoom(Room room) {
+        providerCatalog.forEach(adapter -> room.addProviderAdapter(new ProviderAdapter(
+                UUID.randomUUID(),
+                adapter.getProviderName(),
+                adapter.getAccessMode(),
+                adapter.getCapabilities(),
+                adapter.getEndpoint(),
+                adapter.isAvailable())));
+    }
+
+    private void ensureProviderIsRegistered(Room room, String provider, ProviderAccessMode accessMode, List<String> capabilities, String endpoint) {
+        if (provider == null || provider.isBlank()) {
+            return;
+        }
+        boolean exists = room.getProviderAdapters().stream()
+                .anyMatch(adapter -> adapter.getProviderName().equalsIgnoreCase(provider));
+        if (!exists) {
+            registerProvider(room.getId(), provider, accessMode, capabilities, endpoint, true);
+        }
     }
 
     private void validateArtifactRequest(String title, String content, ArtifactType type, UUID parentArtifactId, Room room) {
