@@ -224,10 +224,10 @@ DONE
 
 ## 10. Roadmap
 
-### Phase 0 — Foundations
-- Repository setup
-- Core domain model
-- Basic Web UI shell
+### Phase 0 — Foundations (Completed)
+- Repository setup with Maven wrapper (Spring Boot 3.3.x, Java 21)
+- Core domain model for rooms, participants, and artifacts with in-memory services
+- Basic Web UI shell plus REST endpoints for rooms, participants, and artifacts
 
 ### Phase 1 — Single-Agent MVP
 - One room, one user

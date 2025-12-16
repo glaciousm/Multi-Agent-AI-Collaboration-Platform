@@ -1,0 +1,93 @@
+:root {
+    --bg: #0f172a;
+    --card-bg: #111827;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --accent: #38bdf8;
+    --border: #1f2937;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.08), transparent 30%),
+                radial-gradient(circle at 80% 0%, rgba(94, 234, 212, 0.12), transparent 25%),
+                var(--bg);
+    color: var(--text);
+}
+
+.app-shell {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+}
+
+.app-header h1 { margin: 0 0 8px; }
+.app-header .subtitle { color: var(--muted); margin: 0 0 24px; }
+
+.panel {
+    background: rgba(17, 24, 39, 0.7);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+}
+
+.panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+button {
+    background: var(--accent);
+    border: none;
+    color: #0b1120;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 10px 25px rgba(56, 189, 248, 0.25);
+}
+
+button:hover { transform: translateY(-1px); }
+button:active { transform: translateY(1px); }
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.card-meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+
+.card-section { margin-top: 10px; }
+.card-section ul { padding-left: 18px; margin: 6px 0; }
+.card-section .muted { color: var(--muted); margin: 0; }
+
+.empty {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed var(--border);
+    padding: 16px;
+    border-radius: 12px;
+    color: var(--muted);
+    text-align: center;
+}
