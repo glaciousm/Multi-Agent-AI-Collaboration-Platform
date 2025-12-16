@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Multi-Agent Collaboration</title>
+    <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div class="app-shell">
+    <header class="app-header">
+        <h1>Local Multi-Agent Collaboration Platform</h1>
+        <p class="subtitle">Phase 0 foundations &mdash; rooms, participants, and artifacts.</p>
+    </header>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Rooms</h2>
+                <p>Kick off a collaboration room to start orchestrating agents.</p>
+            </div>
+            <button id="create-room">Create Room</button>
+        </div>
+        <div id="room-list" class="cards"></div>
+    </section>
+</div>
+
+<script>
+    async function fetchRooms() {
+        const response = await fetch('/api/rooms');
+        const rooms = await response.json();
+        renderRooms(rooms);
+    }
+
+    function renderRooms(rooms) {
+        const container = document.getElementById('room-list');
+        if (!rooms.length) {
+            container.innerHTML = '<div class="empty">No rooms yet. Create the first collaborative space.</div>';
+            return;
+        }
+
+        container.innerHTML = rooms.map(room => `
+            <article class="card">
+                <div class="card-title">${room.name}</div>
+                <div class="card-meta">Created ${new Date(room.createdAt).toLocaleString()}</div>
+                <div class="card-section">
+                    <strong>Participants</strong>
+                    <ul>${room.participants.map(p => `<li>${p.displayName} (${p.type})</li>`).join('')}</ul>
+                </div>
+                <div class="card-section">
+                    <strong>Artifacts</strong>
+                    ${room.artifacts.length ? `<ul>${room.artifacts.map(a => `<li>${a.type}: ${a.title || 'Untitled'}</li>`).join('')}</ul>` : '<p class="muted">No artifacts yet</p>'}
+                </div>
+            </article>
+        `).join('');
+    }
+
+    async function createRoom() {
+        const name = prompt('Room name', 'Local Collaboration Room');
+        await fetch('/api/rooms', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        await fetchRooms();
+    }
+
+    document.getElementById('create-room').addEventListener('click', createRoom);
+    fetchRooms();
+</script>
+</body>
+</html>
