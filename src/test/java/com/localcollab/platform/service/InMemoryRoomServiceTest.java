@@ -22,16 +22,17 @@ class InMemoryRoomServiceTest {
     }
 
     @Test
-    void shouldBootstrapRoomWithPlannerAndReviewer() {
+    void shouldBootstrapRoomWithPlannerReviewerAndImplementor() {
         Room room = service.findAll().getFirst();
 
         assertEquals(1, service.findAll().size());
         assertEquals("Multi-Agent Planning Room", room.getName());
 
         List<Participant> participants = room.getParticipants();
-        assertEquals(3, participants.size());
+        assertEquals(4, participants.size());
         assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.PLANNER));
         assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.REVIEWER));
+        assertTrue(participants.stream().anyMatch(p -> p.getRole() == ParticipantRole.IMPLEMENTOR));
     }
 
     @Test
@@ -54,13 +55,13 @@ class InMemoryRoomServiceTest {
     }
 
     @Test
-    void shouldRejectReviewWithoutPlanReference() {
+    void shouldRejectReviewWithoutArtifactReference() {
         Room room = service.findAll().getFirst();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
                 service.addArtifact(room.getId(), ArtifactType.REVIEW, "Review", "Needs more detail", null));
 
-        assertTrue(exception.getMessage().contains("reference a plan"));
+        assertTrue(exception.getMessage().contains("reference"));
     }
 
     @Test
@@ -80,5 +81,50 @@ class InMemoryRoomServiceTest {
 
         assertEquals(1, review.getVersion());
         assertEquals(initialPlan.getId(), review.getParentArtifactId());
+    }
+
+    @Test
+    void shouldEnforcePatchParentRequirement() {
+        Room room = service.findAll().getFirst();
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                service.addArtifact(room.getId(), ArtifactType.PATCH, "Unlinked Patch", "No parent", null));
+
+        assertTrue(exception.getMessage().contains("Patch artifacts must reference"));
+    }
+
+    @Test
+    void shouldSupportPatchAndReviewCycle() {
+        Room room = service.findAll().getFirst();
+        Artifact basePlan = room.getArtifacts().stream()
+                .filter(a -> a.getType() == ArtifactType.PLAN)
+                .findFirst()
+                .orElseThrow();
+
+        Artifact implementorPatch = service.addArtifact(
+                room.getId(),
+                ArtifactType.PATCH,
+                "Patch Draft 2",
+                "Adds initial endpoint support",
+                basePlan.getId());
+
+        Artifact patchRevision = service.addArtifact(
+                room.getId(),
+                ArtifactType.PATCH,
+                "Patch Draft 3",
+                "Incorporates review feedback",
+                implementorPatch.getId());
+
+        Artifact patchReview = service.addArtifact(
+                room.getId(),
+                ArtifactType.REVIEW,
+                "Patch Review",
+                "Looks solid; add more tests.",
+                patchRevision.getId());
+
+        assertEquals(2, implementorPatch.getVersion());
+        assertEquals(3, patchRevision.getVersion());
+        assertEquals(1, patchReview.getVersion());
+        assertEquals(patchRevision.getId(), patchReview.getParentArtifactId());
     }
 }

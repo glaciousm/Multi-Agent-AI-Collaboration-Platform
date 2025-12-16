@@ -239,10 +239,10 @@ DONE
 - Established a plan review loop with explicit review artifacts tied to specific plan versions.
 - Introduced artifact versioning so every plan iteration is tracked and incremented automatically.
 
-### Phase 3 — Implementation Loop
-- Implementor AI
-- Patch artifacts
-- Review/revision cycle
+### Phase 3 — Implementation Loop (Completed)
+- Added an implementor AI participant alongside planner and reviewer to carry patches forward.
+- Introduced patch artifacts with parent validation to ensure they align to a plan, prior patch, or task.
+- Enabled reviews for plans or patches, supporting a review/revision loop with versioned artifacts.
 
 ### Phase 4 — Stability & Tooling
 - Retry logic
