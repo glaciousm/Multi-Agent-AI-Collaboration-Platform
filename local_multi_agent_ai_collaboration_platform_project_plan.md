@@ -234,10 +234,10 @@ DONE
 - In-memory chat log tied to the room, with REST endpoints to post and list messages
 - Plan artifact scaffold created on room bootstrapping to drive the planning conversation
 
-### Phase 2 — Multi-Agent Planning
-- Add Reviewer AI
-- Plan review loop
-- Artifact versioning
+### Phase 2 — Multi-Agent Planning (Completed)
+- Added a reviewer AI participant to the default room to provide critique alongside the planner.
+- Established a plan review loop with explicit review artifacts tied to specific plan versions.
+- Introduced artifact versioning so every plan iteration is tracked and incremented automatically.
 
 ### Phase 3 — Implementation Loop
 - Implementor AI

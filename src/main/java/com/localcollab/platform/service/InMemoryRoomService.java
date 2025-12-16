@@ -38,7 +38,8 @@ public class InMemoryRoomService {
         Room room = new Room(UUID.randomUUID(), name, Instant.now());
         room.addParticipant(new Participant(UUID.randomUUID(), "You", ParticipantType.HUMAN, ParticipantRole.OBSERVER, "local", List.of("dialog")));
         room.addParticipant(new Participant(UUID.randomUUID(), "Planner", ParticipantType.AI, ParticipantRole.PLANNER, "ChatGPT", List.of("planning", "dialog")));
-        room.addArtifact(new Artifact(UUID.randomUUID(), ArtifactType.PLAN, "Starter Plan", "1) Clarify the request.\n2) Outline a structured plan.\n3) Deliver the plan artifact for review.", 1, Instant.now()));
+        room.addParticipant(new Participant(UUID.randomUUID(), "Reviewer", ParticipantType.AI, ParticipantRole.REVIEWER, "Claude", List.of("review", "dialog")));
+        room.addArtifact(new Artifact(UUID.randomUUID(), ArtifactType.PLAN, "Starter Plan", "1) Clarify the request.\n2) Outline a structured plan.\n3) Deliver the plan artifact for review.", 1, Instant.now(), null));
         rooms.put(room.getId(), room);
         return room;
     }
@@ -49,10 +50,30 @@ public class InMemoryRoomService {
         return room;
     }
 
-    public Room addArtifact(UUID roomId, Artifact artifact) {
+    public Artifact addArtifact(UUID roomId, ArtifactType type, String title, String content, UUID parentArtifactId) {
         Room room = getRoomOrThrow(roomId);
+
+        ArtifactType artifactType = type == null ? ArtifactType.NOTE : type;
+
+        validateArtifactRequest(title, content, artifactType, parentArtifactId, room);
+
+        int nextVersion = room.getArtifacts().stream()
+                .filter(a -> a.getType() == artifactType)
+                .mapToInt(Artifact::getVersion)
+                .max()
+                .orElse(0) + 1;
+
+        Artifact artifact = new Artifact(
+                UUID.randomUUID(),
+                artifactType,
+                title.trim(),
+                content.trim(),
+                nextVersion,
+                Instant.now(),
+                parentArtifactId);
+
         room.addArtifact(artifact);
-        return room;
+        return artifact;
     }
 
     public ChatMessage addMessage(UUID roomId, UUID participantId, String content) {
@@ -95,6 +116,36 @@ public class InMemoryRoomService {
             return;
         }
 
-        createRoom("Single-Agent Planning Room");
+        createRoom("Multi-Agent Planning Room");
+    }
+
+    private void validateArtifactRequest(String title, String content, ArtifactType type, UUID parentArtifactId, Room room) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Artifact title must not be blank");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("Artifact content must not be blank");
+        }
+
+        if (type == ArtifactType.REVIEW) {
+            if (parentArtifactId == null) {
+                throw new IllegalArgumentException("Review artifacts must reference a plan version");
+            }
+        }
+
+        if (parentArtifactId != null) {
+            Artifact parentArtifact = room.getArtifacts().stream()
+                    .filter(artifact -> artifact.getId().equals(parentArtifactId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Parent artifact not found in room"));
+
+            if (type == ArtifactType.REVIEW && parentArtifact.getType() != ArtifactType.PLAN) {
+                throw new IllegalArgumentException("Review artifacts must target an existing plan");
+            }
+
+            if (type == ArtifactType.PLAN && parentArtifact.getType() != ArtifactType.PLAN) {
+                throw new IllegalArgumentException("Plan versions must reference a prior plan");
+            }
+        }
     }
 }

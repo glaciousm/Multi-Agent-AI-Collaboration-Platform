@@ -10,18 +10,20 @@ public class Artifact {
     private String content;
     private int version;
     private Instant createdAt;
+    private UUID parentArtifactId;
 
     public Artifact() {
         // for serialization
     }
 
-    public Artifact(UUID id, ArtifactType type, String title, String content, int version, Instant createdAt) {
+    public Artifact(UUID id, ArtifactType type, String title, String content, int version, Instant createdAt, UUID parentArtifactId) {
         this.id = id;
         this.type = type;
         this.title = title;
         this.content = content;
         this.version = version;
         this.createdAt = createdAt;
+        this.parentArtifactId = parentArtifactId;
     }
 
     public UUID getId() {
@@ -46,5 +48,9 @@ public class Artifact {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public UUID getParentArtifactId() {
+        return parentArtifactId;
     }
 }

@@ -10,7 +10,7 @@
 <div class="app-shell">
     <header class="app-header">
         <h1>Local Multi-Agent Collaboration Platform</h1>
-        <p class="subtitle">Phase 1 &mdash; Single-agent planning with chat and a plan artifact.</p>
+        <p class="subtitle">Phase 2 &mdash; Multi-agent planning with a reviewer and versioned plan artifacts.</p>
     </header>
 
     <section class="panel">
@@ -49,7 +49,7 @@
                 </div>
                 <div class="card-section">
                     <strong>Artifacts</strong>
-                    ${room.artifacts.length ? `<ul>${room.artifacts.map(a => `<li>${a.type}: ${a.title || 'Untitled'}</li>`).join('')}</ul>` : '<p class="muted">No artifacts yet</p>'}
+                    ${room.artifacts.length ? `<ul>${room.artifacts.map(a => `<li>${a.type} v${a.version}: ${a.title || 'Untitled'}</li>`).join('')}</ul>` : '<p class="muted">No artifacts yet</p>'}
                 </div>
                 <div class="card-section">
                     <strong>Chat</strong>
