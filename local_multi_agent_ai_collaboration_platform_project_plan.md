@@ -254,6 +254,11 @@ DONE
 - Enabled API-based adapters to be provisioned via REST so participants can lean on future transport layers without code changes.
 - Introduced task lanes that allow multiple implementors to execute task artifacts in parallel while keeping scheduling auditable inside each room.
 
+### Phase 6 — Visibility & Control (Completed)
+- Added task lane lifecycle controls so coordinators can mark lanes as blocked or completed to reflect execution reality.
+- Introduced room summaries that surface participant, artifact, task lane, and driver health counts to keep orchestration state observable at a glance.
+- Updated the web shell to reflect the Phase 6 focus on lifecycle control and orchestration visibility.
+
 ---
 
 ## 11. Success Criteria
