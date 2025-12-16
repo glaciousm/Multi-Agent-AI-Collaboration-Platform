@@ -13,6 +13,8 @@ public class Room {
     private List<Participant> participants = new ArrayList<>();
     private List<Artifact> artifacts = new ArrayList<>();
     private List<ChatMessage> messages = new ArrayList<>();
+    private boolean paused;
+    private DriverStatus driverStatus = DriverStatus.healthy();
 
     public Room() {
         // for serialization
@@ -48,6 +50,14 @@ public class Room {
         return Collections.unmodifiableList(messages);
     }
 
+    public boolean isPaused() {
+        return paused;
+    }
+
+    public DriverStatus getDriverStatus() {
+        return driverStatus;
+    }
+
     public void addParticipant(Participant participant) {
         participants.add(participant);
     }
@@ -58,5 +68,15 @@ public class Room {
 
     public void addMessage(ChatMessage message) {
         messages.add(message);
+    }
+
+    public void pause() {
+        this.paused = true;
+        this.driverStatus = driverStatus.asPaused();
+    }
+
+    public void resume() {
+        this.paused = false;
+        this.driverStatus = driverStatus.reset();
     }
 }

@@ -244,10 +244,10 @@ DONE
 - Introduced patch artifacts with parent validation to ensure they align to a plan, prior patch, or task.
 - Enabled reviews for plans or patches, supporting a review/revision loop with versioned artifacts.
 
-### Phase 4 — Stability & Tooling
-- Retry logic
-- Pause/resume
-- Improved driver resilience
+### Phase 4 — Stability & Tooling (Completed)
+- Added retry tracking for provider drivers with automatic pausing once the retry budget is exhausted.
+- Introduced explicit pause/resume controls that block chat and artifact mutations while a room is paused.
+- Captured driver health metadata (last failure, consecutive failures) so retries and recovery are visible to the orchestration layer.
 
 ### Phase 5 — Expansion (Optional)
 - Additional providers

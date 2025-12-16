@@ -4,6 +4,7 @@ import com.localcollab.platform.domain.Artifact;
 import com.localcollab.platform.domain.ArtifactType;
 import com.localcollab.platform.domain.ChatMessage;
 import com.localcollab.platform.domain.Participant;
+import com.localcollab.platform.domain.DriverStatus;
 import com.localcollab.platform.domain.ParticipantRole;
 import com.localcollab.platform.domain.ParticipantType;
 import com.localcollab.platform.domain.Room;
@@ -51,12 +52,14 @@ public class InMemoryRoomService {
 
     public Room addParticipant(UUID roomId, Participant participant) {
         Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
         room.addParticipant(participant);
         return room;
     }
 
     public Artifact addArtifact(UUID roomId, ArtifactType type, String title, String content, UUID parentArtifactId) {
         Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
 
         ArtifactType artifactType = type == null ? ArtifactType.NOTE : type;
 
@@ -83,6 +86,7 @@ public class InMemoryRoomService {
 
     public ChatMessage addMessage(UUID roomId, UUID participantId, String content) {
         Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
         Participant author = room.getParticipants()
                 .stream()
                 .filter(p -> p.getId().equals(participantId))
@@ -108,12 +112,46 @@ public class InMemoryRoomService {
         return rooms.get(roomId);
     }
 
+    public Room pauseRoom(UUID roomId) {
+        Room room = getRoomOrThrow(roomId);
+        room.pause();
+        return room;
+    }
+
+    public Room resumeRoom(UUID roomId) {
+        Room room = getRoomOrThrow(roomId);
+        room.resume();
+        return room;
+    }
+
+    public Room recordDriverFailure(UUID roomId, String reason) {
+        Room room = getRoomOrThrow(roomId);
+        room.getDriverStatus().recordFailure(reason);
+        if (room.getDriverStatus().getState() == DriverStatus.State.PAUSED) {
+            room.pause();
+        }
+        return room;
+    }
+
+    public Room recordDriverRecovery(UUID roomId) {
+        Room room = getRoomOrThrow(roomId);
+        room.getDriverStatus().recordRecovery();
+        room.resume();
+        return room;
+    }
+
     private Room getRoomOrThrow(UUID roomId) {
         Room room = rooms.get(roomId);
         if (room == null) {
             throw new IllegalArgumentException("Room not found: " + roomId);
         }
         return room;
+    }
+
+    private void ensureRoomIsActive(Room room) {
+        if (room.isPaused()) {
+            throw new IllegalStateException("Room is paused; resume before making changes");
+        }
     }
 
     private void bootstrapDefaultRoom() {
