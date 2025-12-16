@@ -50,11 +50,10 @@ public class TaskLane {
         taskArtifactIds.add(taskId);
     }
 
-    public void markComplete() {
-        this.state = TaskLaneState.COMPLETE;
-    }
-
-    public void block() {
-        this.state = TaskLaneState.BLOCKED;
+    public void updateState(TaskLaneState newState) {
+        if (newState == null) {
+            throw new IllegalArgumentException("Task lane state cannot be null");
+        }
+        this.state = newState;
     }
 }

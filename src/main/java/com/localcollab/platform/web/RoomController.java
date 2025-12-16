@@ -15,6 +15,7 @@ import com.localcollab.platform.web.dto.ProviderAdapterRequest;
 import com.localcollab.platform.web.dto.RoomRequest;
 import com.localcollab.platform.web.dto.TaskLaneRequest;
 import com.localcollab.platform.web.dto.TaskLaneTaskRequest;
+import com.localcollab.platform.web.dto.TaskLaneStateRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -131,6 +132,22 @@ public class RoomController {
         }
     }
 
+    @PostMapping("/{roomId}/task-lanes/{laneId}/state")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Room updateTaskLaneState(@PathVariable UUID roomId, @PathVariable UUID laneId, @RequestBody TaskLaneStateRequest request) {
+        if (request.getState() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "state is required");
+        }
+        try {
+            roomService.updateTaskLaneState(roomId, laneId, request.getState());
+            return roomService.getRoom(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
     @GetMapping("/{roomId}/messages")
     public List<ChatMessage> listMessages(@PathVariable UUID roomId) {
         Room room = roomService.getRoom(roomId);
@@ -197,6 +214,15 @@ public class RoomController {
     public Room recordDriverRecovery(@PathVariable UUID roomId) {
         try {
             return roomService.recordDriverRecovery(roomId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
+    @GetMapping("/{roomId}/summary")
+    public com.localcollab.platform.domain.RoomSummary summarizeRoom(@PathVariable UUID roomId) {
+        try {
+            return roomService.summarizeRoom(roomId);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.localcollab.platform.domain.Participant;
 import com.localcollab.platform.domain.ParticipantType;
 import com.localcollab.platform.domain.Room;
+import com.localcollab.platform.domain.TaskLaneState;
 import com.localcollab.platform.service.InMemoryRoomService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,5 +181,23 @@ class RoomControllerTest {
                         .content(objectMapper.writeValueAsString(assignmentPayload)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.taskLanes[?(@.taskArtifactIds[0]=='" + taskId + "')]").isNotEmpty());
+    }
+
+    @Test
+    void updatesTaskLaneStateAndSummarizesRoom() throws Exception {
+        Map<String, Object> statePayload = Map.of("state", TaskLaneState.BLOCKED.name());
+
+        UUID laneId = roomService.getRoom(roomId).getTaskLanes().getFirst().getId();
+
+        mockMvc.perform(post("/api/rooms/" + roomId + "/task-lanes/" + laneId + "/state")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statePayload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLanes[0].state").value(TaskLaneState.BLOCKED.name()));
+
+        mockMvc.perform(get("/api/rooms/" + roomId + "/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskLanesByState." + TaskLaneState.BLOCKED.name()).value(1))
+                .andExpect(jsonPath("$.participantsByRole.PLANNER").value(1));
     }
 }

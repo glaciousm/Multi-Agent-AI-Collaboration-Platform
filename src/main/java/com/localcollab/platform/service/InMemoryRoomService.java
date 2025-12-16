@@ -12,6 +12,7 @@ import com.localcollab.platform.domain.ProviderAdapter;
 import com.localcollab.platform.domain.Room;
 import com.localcollab.platform.domain.TaskLane;
 import com.localcollab.platform.domain.TaskLaneState;
+import com.localcollab.platform.domain.RoomSummary;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -166,6 +167,23 @@ public class InMemoryRoomService {
         return lane;
     }
 
+    public TaskLane updateTaskLaneState(UUID roomId, UUID laneId, TaskLaneState state) {
+        Room room = getRoomOrThrow(roomId);
+        ensureRoomIsActive(room);
+
+        if (state == null) {
+            throw new IllegalArgumentException("Task lane state is required");
+        }
+
+        TaskLane lane = room.getTaskLanes().stream()
+                .filter(t -> t.getId().equals(laneId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Task lane not found"));
+
+        lane.updateState(state);
+        return lane;
+    }
+
     public ChatMessage addMessage(UUID roomId, UUID participantId, String content) {
         Room room = getRoomOrThrow(roomId);
         ensureRoomIsActive(room);
@@ -220,6 +238,32 @@ public class InMemoryRoomService {
         room.getDriverStatus().recordRecovery();
         room.resume();
         return room;
+    }
+
+    public RoomSummary summarizeRoom(UUID roomId) {
+        Room room = getRoomOrThrow(roomId);
+
+        Map<ParticipantRole, Long> participantsByRole = room.getParticipants().stream()
+                .collect(java.util.stream.Collectors.groupingBy(Participant::getRole, java.util.stream.Collectors.counting()));
+
+        Map<ParticipantType, Long> participantsByType = room.getParticipants().stream()
+                .collect(java.util.stream.Collectors.groupingBy(Participant::getType, java.util.stream.Collectors.counting()));
+
+        Map<ArtifactType, Long> artifactsByType = room.getArtifacts().stream()
+                .collect(java.util.stream.Collectors.groupingBy(Artifact::getType, java.util.stream.Collectors.counting()));
+
+        Map<TaskLaneState, Long> taskLanesByState = room.getTaskLanes().stream()
+                .collect(java.util.stream.Collectors.groupingBy(TaskLane::getState, java.util.stream.Collectors.counting()));
+
+        return new RoomSummary(
+                room.getId(),
+                room.getName(),
+                participantsByRole,
+                participantsByType,
+                artifactsByType,
+                taskLanesByState,
+                room.getMessages().size(),
+                room.getDriverStatus());
     }
 
     private Room getRoomOrThrow(UUID roomId) {

@@ -8,6 +8,8 @@ import com.localcollab.platform.domain.ParticipantType;
 import com.localcollab.platform.domain.ProviderAccessMode;
 import com.localcollab.platform.domain.TaskLane;
 import com.localcollab.platform.domain.Room;
+import com.localcollab.platform.domain.TaskLaneState;
+import com.localcollab.platform.domain.RoomSummary;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -95,5 +97,20 @@ class InMemoryRoomServiceTest {
         assertEquals(3, updated.getTaskLanes().size());
         assertTrue(updated.getTaskLanes().stream().anyMatch(lane -> lane.getTaskArtifactIds().contains(taskOne.getId())));
         assertTrue(updated.getTaskLanes().stream().anyMatch(lane -> lane.getTaskArtifactIds().contains(taskTwo.getId())));
+    }
+
+    @Test
+    void updatesTaskLaneStateAndProducesSummary() {
+        TaskLane lane = room.getTaskLanes().getFirst();
+        service.updateTaskLaneState(room.getId(), lane.getId(), TaskLaneState.BLOCKED);
+
+        Room updated = service.getRoom(room.getId());
+        assertEquals(TaskLaneState.BLOCKED, updated.getTaskLanes().getFirst().getState());
+
+        RoomSummary summary = service.summarizeRoom(room.getId());
+        assertEquals(4, summary.getParticipantsByRole().values().stream().mapToLong(Long::longValue).sum());
+        assertEquals(1, summary.getTaskLanesByState().get(TaskLaneState.BLOCKED));
+        assertTrue(summary.getArtifactsByType().get(ArtifactType.PLAN) >= 1);
+        assertEquals(updated.getMessages().size(), summary.getMessageCount());
     }
 }
