@@ -34,3 +34,53 @@ If you prefer a packaged artifact, build with `./mvnw clean package` and run the
 
 ## Documentation
 See [`USER_GUIDE.md`](USER_GUIDE.md) for detailed instructions on running the service, using the web shell, and exercising the REST API.
+
+## Roadmap
+
+### Phase 1: Local-first foundation
+- **Goals:** Establish a working local environment with clear orchestration primitives and starter artifacts to validate the collaboration model.
+- **Deliverables:**
+  - Baseline Spring Boot service with REST APIs, room seeding, and in-memory persistence.
+  - Web shell scaffolding that lists rooms, participants, and artifacts.
+  - Initial AI participant roles (planner, reviewer, implementor) wired to stub providers.
+- **Key points:** Focus on developer ergonomics, rapid iteration, and clear domain boundaries between rooms, participants, and artifacts.
+
+### Phase 2: Provider catalog + health
+- **Goals:** Broaden provider support and add health tracking to keep rooms reliable.
+- **Deliverables:**
+  - Catalog entries for common web UI and API providers (ChatGPT, Claude, Gemini, Local API).
+  - Driver health tracking with failure/recovery states and room pausing.
+  - Configuration surfaces for provider endpoints and capabilities.
+- **Key points:** Ensure adapters are pluggable, health is observable, and room state responds predictably to provider issues.
+
+### Phase 3: Artifact-first workflows
+- **Goals:** Make artifacts the backbone of collaboration with lifecycle visibility and review loops.
+- **Deliverables:**
+  - Plans, tasks, patches, reviews, and notes with versioning and ownership metadata.
+  - Task lanes for implementors with active/blocked/completed states and sequencing.
+  - Review surfaces so reviewers can gate merges and provide feedback.
+- **Key points:** Prioritize traceability, status clarity, and reviewer-driven quality gates.
+
+### Phase 4: Role-based orchestration
+- **Goals:** Strengthen role clarity and automation so planner/reviewer/implementor loops stay aligned.
+- **Deliverables:**
+  - Role-scoped capabilities and permissions in the room model.
+  - Planner-to-implementor task handoffs with acceptance criteria and exit checks.
+  - Reviewer prompts and workflows that close the loop on patches before merge.
+- **Key points:** Keep automation opinionated but overridable by humans; emphasize reproducible task plans.
+
+### Phase 5: UX polish and extensibility
+- **Goals:** Improve usability of the web shell and make it easy to extend workflows.
+- **Deliverables:**
+  - UI refinements for room/participant/artifact overviews and task lanes.
+  - Extensible templates for prompts, task plans, and review checklists.
+  - Hot-reload or rapid-reload developer loop for UI and backend changes.
+- **Key points:** Optimize for clarity and speed; keep customization approachable.
+
+### Phase 6: Stability, packaging, and docs
+- **Goals:** Prepare the platform for broader use with solid packaging and guidance.
+- **Deliverables:**
+  - Production-ready build artifacts with clear deploy/run instructions.
+  - Hardened error handling, logging, and metrics for room and provider operations.
+  - Comprehensive documentation and example flows demonstrating end-to-end collaboration.
+- **Key points:** Favor stability and observability; document golden paths and troubleshooting steps.
