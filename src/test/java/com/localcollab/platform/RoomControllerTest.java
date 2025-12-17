@@ -37,6 +37,7 @@ class RoomControllerTest {
     @Test
     void createRoomAndList() throws Exception {
         RoomRequest request = new RoomRequest();
+        request.setName("Test Room");
         mockMvc.perform(post("/api/rooms")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -52,7 +53,7 @@ class RoomControllerTest {
         // create room
         String response = mockMvc.perform(post("/api/rooms")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new RoomRequest())))
+                        .content(objectMapper.writeValueAsString(roomRequest("Local Room"))))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
@@ -61,8 +62,10 @@ class RoomControllerTest {
         UUID roomId = UUID.fromString(objectMapper.readTree(response).get("id").asText());
 
         ParticipantRequest participantRequest = new ParticipantRequest();
-        participantRequest.getCapabilities().addAll(List.of("planning", "review"));
-        // default role and type applied in controller
+        participantRequest.setDisplayName("Assistant");
+        participantRequest.setType(ParticipantType.AI);
+        participantRequest.setRole(ParticipantRole.OBSERVER);
+        participantRequest.setCapabilities(List.of("planning", "review"));
         mockMvc.perform(post("/api/rooms/" + roomId + "/participants")
                         .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(participantRequest)))
@@ -70,5 +73,11 @@ class RoomControllerTest {
                 .andExpect(jsonPath("$.participants", hasSize(5)))
                 .andExpect(jsonPath("$.participants[4].role", is(ParticipantRole.OBSERVER.name())))
                 .andExpect(jsonPath("$.participants[4].type", is(ParticipantType.AI.name())));
+    }
+
+    private RoomRequest roomRequest(String name) {
+        RoomRequest request = new RoomRequest();
+        request.setName(name);
+        return request;
     }
 }
