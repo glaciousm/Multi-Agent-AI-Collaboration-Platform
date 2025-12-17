@@ -10,6 +10,7 @@ import com.localcollab.platform.domain.TaskLane;
 import com.localcollab.platform.domain.Room;
 import com.localcollab.platform.domain.TaskLaneState;
 import com.localcollab.platform.domain.RoomSummary;
+import com.localcollab.platform.validation.ProviderIdentityValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class InMemoryRoomServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new InMemoryRoomService();
+        service = new InMemoryRoomService(new ProviderIdentityValidator());
         room = service.findAll().getFirst();
     }
 

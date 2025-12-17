@@ -15,6 +15,7 @@ public class Room {
     private List<ChatMessage> messages = new ArrayList<>();
     private List<ProviderAdapter> providerAdapters = new ArrayList<>();
     private List<TaskLane> taskLanes = new ArrayList<>();
+    private List<RoomEvent> events = new ArrayList<>();
     private boolean paused;
     private DriverStatus driverStatus = DriverStatus.healthy();
 
@@ -68,6 +69,10 @@ public class Room {
         return driverStatus;
     }
 
+    public List<RoomEvent> getEvents() {
+        return Collections.unmodifiableList(events);
+    }
+
     public void addParticipant(Participant participant) {
         participants.add(participant);
     }
@@ -86,6 +91,10 @@ public class Room {
 
     public void addTaskLane(TaskLane taskLane) {
         taskLanes.add(taskLane);
+    }
+
+    public void addEvent(RoomEvent event) {
+        events.add(event);
     }
 
     public void pause() {

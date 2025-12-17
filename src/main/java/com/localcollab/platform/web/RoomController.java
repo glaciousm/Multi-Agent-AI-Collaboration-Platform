@@ -2,20 +2,24 @@ package com.localcollab.platform.web;
 
 import com.localcollab.platform.domain.ArtifactType;
 import com.localcollab.platform.domain.ChatMessage;
+import com.localcollab.platform.domain.Room;
 import com.localcollab.platform.domain.Participant;
 import com.localcollab.platform.domain.ParticipantRole;
 import com.localcollab.platform.domain.ParticipantType;
-import com.localcollab.platform.domain.Room;
 import com.localcollab.platform.service.InMemoryRoomService;
 import com.localcollab.platform.web.dto.ArtifactRequest;
 import com.localcollab.platform.web.dto.ChatMessageRequest;
 import com.localcollab.platform.web.dto.DriverFailureRequest;
 import com.localcollab.platform.web.dto.ParticipantRequest;
 import com.localcollab.platform.web.dto.ProviderAdapterRequest;
+import com.localcollab.platform.web.dto.RoomDetailDTO;
+import com.localcollab.platform.web.dto.RoomDtoMapper;
 import com.localcollab.platform.web.dto.RoomRequest;
+import com.localcollab.platform.web.dto.RoomSummaryDTO;
 import com.localcollab.platform.web.dto.TaskLaneRequest;
 import com.localcollab.platform.web.dto.TaskLaneTaskRequest;
 import com.localcollab.platform.web.dto.TaskLaneStateRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,22 +44,24 @@ public class RoomController {
     }
 
     @GetMapping
-    public List<Room> listRooms() {
-        return roomService.findAll();
+    public List<RoomSummaryDTO> listRooms() {
+        List<RoomSummaryDTO> summaries = roomService.findAll().stream()
+                .map(room -> roomService.summarizeRoom(room.getId()))
+                .map(RoomDtoMapper::toRoomSummary)
+                .toList();
+        return summaries;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Room createRoom(@RequestBody RoomRequest request) {
-        String name = request.getName() == null || request.getName().isBlank()
-                ? "Local Collaboration Room"
-                : request.getName().trim();
-        return roomService.createRoom(name);
+    public RoomDetailDTO createRoom(@Valid @RequestBody RoomRequest request) {
+        String name = request.getName().trim();
+        return RoomDtoMapper.toRoomDetail(roomService.createRoom(name));
     }
 
     @PostMapping("/{roomId}/participants")
     @ResponseStatus(HttpStatus.CREATED)
-    public Room addParticipant(@PathVariable UUID roomId, @RequestBody ParticipantRequest request) {
+    public RoomDetailDTO addParticipant(@PathVariable UUID roomId, @Valid @RequestBody ParticipantRequest request) {
         Participant participant = new Participant(
                 UUID.randomUUID(),
                 request.getDisplayName(),
@@ -64,7 +70,7 @@ public class RoomController {
                 request.getProvider(),
                 request.getCapabilities());
         try {
-            return roomService.addParticipant(roomId, participant);
+            return RoomDtoMapper.toRoomDetail(roomService.addParticipant(roomId, participant));
         } catch (IllegalStateException ex) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
         }
@@ -72,10 +78,10 @@ public class RoomController {
 
     @PostMapping("/{roomId}/providers")
     @ResponseStatus(HttpStatus.CREATED)
-    public Room registerProvider(@PathVariable UUID roomId, @RequestBody ProviderAdapterRequest request) {
+    public RoomDetailDTO registerProvider(@PathVariable UUID roomId, @Valid @RequestBody ProviderAdapterRequest request) {
         try {
             roomService.registerProvider(roomId, request.getProviderName(), request.getAccessMode(), request.getCapabilities(), request.getEndpoint(), request.isAvailable());
-            return roomService.getRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.getRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -85,11 +91,11 @@ public class RoomController {
 
     @PostMapping("/{roomId}/artifacts")
     @ResponseStatus(HttpStatus.CREATED)
-    public Room addArtifact(@PathVariable UUID roomId, @RequestBody ArtifactRequest request) {
+    public RoomDetailDTO addArtifact(@PathVariable UUID roomId, @Valid @RequestBody ArtifactRequest request) {
         ArtifactType type = request.getType() == null ? ArtifactType.NOTE : request.getType();
         try {
             roomService.addArtifact(roomId, type, request.getTitle(), request.getContent(), request.getParentArtifactId());
-            return roomService.getRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.getRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -99,16 +105,10 @@ public class RoomController {
 
     @PostMapping("/{roomId}/task-lanes")
     @ResponseStatus(HttpStatus.CREATED)
-    public Room createTaskLane(@PathVariable UUID roomId, @RequestBody TaskLaneRequest request) {
-        if (request.getName() == null || request.getName().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lane name is required");
-        }
-        if (request.getImplementorId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Implementor id is required");
-        }
+    public RoomDetailDTO createTaskLane(@PathVariable UUID roomId, @Valid @RequestBody TaskLaneRequest request) {
         try {
             roomService.createTaskLane(roomId, request.getName(), request.getImplementorId());
-            return roomService.getRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.getRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -118,13 +118,10 @@ public class RoomController {
 
     @PostMapping("/{roomId}/task-lanes/{laneId}/tasks")
     @ResponseStatus(HttpStatus.CREATED)
-    public Room assignTaskToLane(@PathVariable UUID roomId, @PathVariable UUID laneId, @RequestBody TaskLaneTaskRequest request) {
-        if (request.getTaskArtifactId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "taskArtifactId is required");
-        }
+    public RoomDetailDTO assignTaskToLane(@PathVariable UUID roomId, @PathVariable UUID laneId, @Valid @RequestBody TaskLaneTaskRequest request) {
         try {
             roomService.assignTaskToLane(roomId, laneId, request.getTaskArtifactId());
-            return roomService.getRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.getRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -134,13 +131,10 @@ public class RoomController {
 
     @PostMapping("/{roomId}/task-lanes/{laneId}/state")
     @ResponseStatus(HttpStatus.CREATED)
-    public Room updateTaskLaneState(@PathVariable UUID roomId, @PathVariable UUID laneId, @RequestBody TaskLaneStateRequest request) {
-        if (request.getState() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "state is required");
-        }
+    public RoomDetailDTO updateTaskLaneState(@PathVariable UUID roomId, @PathVariable UUID laneId, @Valid @RequestBody TaskLaneStateRequest request) {
         try {
             roomService.updateTaskLaneState(roomId, laneId, request.getState());
-            return roomService.getRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.getRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         } catch (IllegalStateException ex) {
@@ -159,7 +153,7 @@ public class RoomController {
 
     @PostMapping("/{roomId}/messages")
     @ResponseStatus(HttpStatus.CREATED)
-    public ChatMessage postMessage(@PathVariable UUID roomId, @RequestBody ChatMessageRequest request) {
+    public ChatMessage postMessage(@PathVariable UUID roomId, @Valid @RequestBody ChatMessageRequest request) {
         Room room = roomService.getRoom(roomId);
         if (room == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found");
@@ -184,45 +178,45 @@ public class RoomController {
     }
 
     @PostMapping("/{roomId}/pause")
-    public Room pauseRoom(@PathVariable UUID roomId) {
+    public RoomDetailDTO pauseRoom(@PathVariable UUID roomId) {
         try {
-            return roomService.pauseRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.pauseRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }
     }
 
     @PostMapping("/{roomId}/resume")
-    public Room resumeRoom(@PathVariable UUID roomId) {
+    public RoomDetailDTO resumeRoom(@PathVariable UUID roomId) {
         try {
-            return roomService.resumeRoom(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.resumeRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }
     }
 
     @PostMapping("/{roomId}/driver/failures")
-    public Room recordDriverFailure(@PathVariable UUID roomId, @RequestBody DriverFailureRequest request) {
+    public RoomDetailDTO recordDriverFailure(@PathVariable UUID roomId, @Valid @RequestBody DriverFailureRequest request) {
         try {
-            return roomService.recordDriverFailure(roomId, request.getReason());
+            return RoomDtoMapper.toRoomDetail(roomService.recordDriverFailure(roomId, request.getReason()));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }
     }
 
     @PostMapping("/{roomId}/driver/recoveries")
-    public Room recordDriverRecovery(@PathVariable UUID roomId) {
+    public RoomDetailDTO recordDriverRecovery(@PathVariable UUID roomId) {
         try {
-            return roomService.recordDriverRecovery(roomId);
+            return RoomDtoMapper.toRoomDetail(roomService.recordDriverRecovery(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }
     }
 
     @GetMapping("/{roomId}/summary")
-    public com.localcollab.platform.domain.RoomSummary summarizeRoom(@PathVariable UUID roomId) {
+    public RoomSummaryDTO summarizeRoom(@PathVariable UUID roomId) {
         try {
-            return roomService.summarizeRoom(roomId);
+            return RoomDtoMapper.toRoomSummary(roomService.summarizeRoom(roomId));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
         }

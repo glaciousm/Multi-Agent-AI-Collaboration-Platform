@@ -39,11 +39,14 @@ See [`USER_GUIDE.md`](USER_GUIDE.md) for detailed instructions on running the se
 
 ### Phase 1: Local-first foundation
 - **Goals:** Establish a working local environment with clear orchestration primitives and starter artifacts to validate the collaboration model.
-- **Deliverables:**
-  - Baseline Spring Boot service with REST APIs, room seeding, and in-memory persistence.
-  - Web shell scaffolding that lists rooms, participants, and artifacts.
-  - Initial AI participant roles (planner, reviewer, implementor) wired to stub providers.
-- **Key points:** Focus on developer ergonomics, rapid iteration, and clear domain boundaries between rooms, participants, and artifacts.
+  - **Deliverables:**
+    - Baseline Spring Boot service with REST APIs, room seeding, and in-memory persistence.
+    - Web shell scaffolding that lists rooms, participants, and artifacts.
+    - Initial AI participant roles (planner, reviewer, implementor) wired to stub providers.
+    - Stable REST API contract backed by DTO responses and request validation for room mutations.
+    - Thread-safe, per-room orchestration with atomic artifact/task updates and provider identity validation.
+    - Event timeline persistence for messages, artifacts, task lane transitions, and room state changes.
+  - **Key points:** Focus on developer ergonomics, rapid iteration, and clear domain boundaries between rooms, participants, and artifacts.
 
 ### Phase 2: Provider catalog + health
 - **Goals:** Broaden provider support and add health tracking to keep rooms reliable.

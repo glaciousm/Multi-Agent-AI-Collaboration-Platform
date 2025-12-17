@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -64,13 +66,13 @@ class RoomControllerTest {
 
     @Test
     void listsRoomsWithDefaultState() throws Exception {
-        var result = mockMvc.perform(get("/api/rooms"))
+        mockMvc.perform(get("/api/rooms"))
                 .andExpect(status().isOk())
-                .andReturn();
-
-        assertThat(result.getResponse().getContentAsString())
-                .contains("Multi-Agent Planning Room")
-                .contains("Reviewer");
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].roomName", is("Multi-Agent Planning Room")))
+                .andExpect(jsonPath("$[0].participantsByRole.PLANNER", is(1)))
+                .andExpect(jsonPath("$[0].participantsByType.HUMAN", is(1)))
+                .andExpect(jsonPath("$[0].taskLanesByState.ACTIVE", is(1)));
     }
 
     @Test
